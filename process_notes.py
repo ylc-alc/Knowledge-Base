@@ -264,6 +264,80 @@ def rich_text_array(text: str) -> List[Dict[str, Any]]:
     return [rich_text_item(chunk) for chunk in chunks]
 
 
+INLINE_MD_PATTERN = re.compile(r"(\*\*.+?\*\*|`.+?`|\*.+?\*|_(?=\S).+?(?<=\S)_)")
+
+def rich_text_item(text: str, annotations: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    item = {
+        "type": "text",
+        "text": {
+            "content": text[:MAX_RICH_TEXT],
+        },
+        "annotations": {
+            "bold": False,
+            "italic": False,
+            "strikethrough": False,
+            "underline": False,
+            "code": False,
+            "color": "default",
+        },
+    }
+    if annotations:
+        item["annotations"].update(annotations)
+    return item
+
+
+def rich_text_array(text: str) -> List[Dict[str, Any]]:
+    if not text:
+        return []
+    chunks = [text[i : i + MAX_RICH_TEXT] for i in range(0, len(text), MAX_RICH_TEXT)]
+    return [rich_text_item(chunk) for chunk in chunks]
+
+
+def append_chunked_rich_text(
+    items: List[Dict[str, Any]],
+    text: str,
+    annotations: Optional[Dict[str, Any]] = None,
+) -> None:
+    if not text:
+        return
+    for i in range(0, len(text), MAX_RICH_TEXT):
+        chunk = text[i : i + MAX_RICH_TEXT]
+        items.append(rich_text_item(chunk, annotations))
+
+
+def markdown_rich_text_array(text: str) -> List[Dict[str, Any]]:
+    if not text:
+        return []
+
+    items: List[Dict[str, Any]] = []
+    pos = 0
+
+    for match in INLINE_MD_PATTERN.finditer(text):
+        start, end = match.span()
+        token = match.group(0)
+
+        if start > pos:
+            append_chunked_rich_text(items, text[pos:start])
+
+        if token.startswith("**") and token.endswith("**") and len(token) > 4:
+            append_chunked_rich_text(items, token[2:-2], {"bold": True})
+        elif token.startswith("`") and token.endswith("`") and len(token) > 2:
+            append_chunked_rich_text(items, token[1:-1], {"code": True})
+        elif token.startswith("*") and token.endswith("*") and not token.startswith("**") and len(token) > 2:
+            append_chunked_rich_text(items, token[1:-1], {"italic": True})
+        elif token.startswith("_") and token.endswith("_") and len(token) > 2:
+            append_chunked_rich_text(items, token[1:-1], {"italic": True})
+        else:
+            append_chunked_rich_text(items, token)
+
+        pos = end
+
+    if pos < len(text):
+        append_chunked_rich_text(items, text[pos:])
+
+    return items
+    
+
 def blocks_from_note(note: ParsedNote) -> List[Dict[str, Any]]:
     blocks: List[Dict[str, Any]] = []
     sections = note.sections
@@ -288,7 +362,7 @@ def heading_block(text: str) -> Dict[str, Any]:
         "object": "block",
         "type": "heading_2",
         "heading_2": {
-            "rich_text": rich_text_array(text),
+            "rich_text": markdown_rich_text_array(text.strip()),
         },
     }
 
@@ -298,7 +372,7 @@ def paragraph_block(text: str) -> Dict[str, Any]:
         "object": "block",
         "type": "paragraph",
         "paragraph": {
-            "rich_text": rich_text_array(text.strip()),
+            "rich_text": markdown_rich_text_array(text.strip()),
         },
     }
 
@@ -308,7 +382,7 @@ def bulleted_block(text: str) -> Dict[str, Any]:
         "object": "block",
         "type": "bulleted_list_item",
         "bulleted_list_item": {
-            "rich_text": rich_text_array(text.strip()),
+            "rich_text": markdown_rich_text_array(text.strip()),
         },
     }
 
@@ -318,7 +392,7 @@ def numbered_block(text: str) -> Dict[str, Any]:
         "object": "block",
         "type": "numbered_list_item",
         "numbered_list_item": {
-            "rich_text": rich_text_array(text.strip()),
+            "rich_text": markdown_rich_text_array(text.strip()),
         },
     }
 
