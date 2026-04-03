@@ -194,7 +194,7 @@ def notion_request(method: str, url: str, token: str, payload: Optional[Dict[str
 
 
 def fetch_database_schema(token: str, database_id: str) -> Dict[str, Any]:
-    return notion_request("GET", f"https://api.notion.com/v1/databases/{notion_database_id}", token)
+    return notion_request("GET", f"https://api.notion.com/v1/databases/{database_id}", token)
 
 
 def get_title_property_name(schema: Dict[str, Any]) -> str:
