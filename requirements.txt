@@ -1,3 +1,2 @@
-notion-client
-python-frontmatter
-pyyaml
+PyYAML>=6.0.1
+requests>=2.32.0
