@@ -1,2 +1,3 @@
-google-generativeai
 notion-client
+python-frontmatter
+pyyaml
