@@ -1,41 +1,50 @@
 # Knowledge Base Automation
 
-A lightweight workflow for turning screenshot-based knowledge into structured notes and publishing them to a Notion knowledge base.
+Turn screenshots into structured knowledge notes and publish them to Notion through a lightweight GitHub-based workflow.
 
-## Overview
+## What this project does
 
-This project connects three stages into one practical pipeline:
+This project connects three tools into one practical pipeline:
 
-1. **Gem** extracts knowledge from screenshots and returns standardised Markdown
-2. **GitHub** stores the Markdown files and runs the ingestion workflow
-3. **Notion** receives the parsed content as database entries with formatted page content
+* **Gem** extracts knowledge from screenshots and returns standardised Markdown
+* **GitHub** stores notes, runs validation, and triggers ingestion
+* **Notion** receives the final database entry and formatted page content
 
-The design deliberately keeps the semantic extraction in the Gem, while keeping the publishing pipeline deterministic.
+The workflow is designed to keep interpretation flexible and publishing reliable.
 
-## Workflow
-
-### End-to-end flow
+## How it works
 
 ```text
 Screenshot(s)
   -> Gem
-  -> standard Markdown note(s)
+  -> Markdown note(s)
   -> GitHub pending folder
-  -> GitHub Actions workflow
-  -> process_notes.py parser
-  -> Notion database entry + page content
+  -> GitHub Actions
+  -> process_notes.py
+  -> Notion database
 ```
 
-### Why this approach
+## Why this approach
 
-This project uses a hybrid model rather than a fully automated screenshot-to-Notion LLM flow.
+Instead of relying on a second LLM pass during ingestion, this project separates responsibilities clearly:
 
-* **Gem** handles interpretation and summarisation
-* **GitHub** acts as the intake, audit, and automation layer
-* **Python parser** handles validation and Notion formatting
-* **Notion** stores the final knowledge base entries
+* **Gem** handles semantic extraction
+* **GitHub Actions** handles automation
+* **Python** handles parsing, validation, and Notion formatting
+* **Notion** acts as the final knowledge base
 
-This keeps the flexible part where it is useful and the repetitive part where it is reliable.
+This makes the workflow easier to audit, easier to troubleshoot, and more stable over time.
+
+## Features
+
+* Screenshot-to-Markdown workflow through a custom Gem
+* Standardised Markdown contract for notes
+* GitHub Actions-based ingestion pipeline
+* Automatic publishing to a Notion database
+* Structured Notion page content with basic inline formatting support
+* File movement for success and failure handling
+* JSONL ingest logging for traceability
+* Local duplicate protection based on content hash
 
 ## Repository structure
 
@@ -56,9 +65,48 @@ This keeps the flexible part where it is useful and the repetitive part where it
 └── requirements.txt
 ```
 
-## Markdown contract
+## Quick start
 
-Each screenshot should be converted into one Markdown note using this structure:
+### 1. Create and configure your Notion integration
+
+Create a Notion integration and make sure the target database is shared with it.
+
+### 2. Add GitHub repository secrets
+
+Set these repository secrets:
+
+* `NOTION_TOKEN`
+* `NOTION_DATABASE_ID`
+
+Use the actual **database ID**, not the view ID.
+
+### 3. Install dependencies locally if needed
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Generate Markdown notes from screenshots
+
+Use your Gem to turn screenshot content into Markdown notes following the project contract.
+
+### 5. Add notes to the pending folder
+
+Place note files into:
+
+* `pending/`
+* or `pending/md/`
+
+### 6. Trigger ingestion
+
+Either:
+
+* push the files to GitHub
+* or run the workflow manually with `workflow_dispatch`
+
+## Markdown format
+
+Each screenshot should be converted into one Markdown note with YAML frontmatter and standard sections.
 
 ```markdown
 ---
@@ -86,7 +134,69 @@ Concise summary of the useful content.
 - Optional action
 ```
 
-### Required frontmatter fields
+## Example output
+
+Below is a sample Markdown note generated from a screenshot and prepared for ingestion.
+
+```markdown
+---
+title: "How to win with AI in 2026"
+category: "AI/LLM"
+tags: ["ai-strategy", "productivity", "career-growth", "automation"]
+created_at: "2026-04-03"
+status: "Not started"
+filename: "20260403_02.md"
+---
+
+# Knowledge Summary
+A practical summary of how to use AI as a force multiplier in day-to-day work, with emphasis on task decomposition, prompt quality, rapid iteration, and balancing automation with human value.
+
+# Extracted Details
+- **Work Deconstruction**: Break jobs into smaller tasks and identify which parts AI can handle efficiently.
+- **Training AI**: Better outputs come from clear instructions, examples, and iteration.
+- **AI as a Multiplier**: One person using AI effectively can increase output significantly.
+- **Bias Toward Action**: Learning by doing is more effective than waiting for certainty.
+- **The Power of the Question**: Prompt quality strongly shapes output quality.
+
+# Key Takeaways
+- AI creates the most value when used to redesign work rather than simply speed up existing habits.
+- Prompting, iteration, and task framing are becoming core practical skills.
+
+# Actionable Tips
+- Pick one repetitive task and test whether AI can complete the first draft.
+- Improve results by refining prompts with structure, examples, and constraints.
+```
+
+### What happens next
+
+When this file is placed into `pending/` or `pending/md/`:
+
+1. GitHub Actions runs the ingestion workflow
+2. `process_notes.py` validates the frontmatter and sections
+3. A new page is created in Notion
+4. Frontmatter fields are mapped to database properties
+5. The body content is published as formatted Notion blocks
+
+### Result in Notion
+
+The workflow will create:
+
+* a database item with:
+
+  * **Name** = `How to win with AI in 2026`
+  * **Category** = `AI/LLM`
+  * **Created At** = `2026-04-03`
+  * **Status** = `Not started`
+  * **Tag** = `ai-strategy`, `productivity`, `career-growth`, `automation`
+
+* a page body containing:
+
+  * `Knowledge Summary`
+  * `Extracted Details`
+  * optional `Key Takeaways`
+  * optional `Actionable Tips`
+
+### Required frontmatter
 
 * `title`
 * `category`
@@ -110,7 +220,7 @@ Concise summary of the useful content.
 
 ## Supported categories
 
-The project uses a controlled category list:
+The workflow uses a controlled category list:
 
 * Technical Tip
 * Book Recommendation
@@ -124,17 +234,17 @@ The project uses a controlled category list:
 
 If uncertain, use `General`.
 
-## Notion schema
+## Notion database mapping
 
-The workflow is currently designed for a Notion database with these properties:
+The workflow is designed for a Notion database with these properties:
 
-* **Name** (title)
+* **Name**
 * **Category**
 * **Created At**
 * **Status**
 * **Tag**
 
-Mapping from Markdown to Notion:
+Markdown to Notion mapping:
 
 * `title` -> **Name**
 * `category` -> **Category**
@@ -142,7 +252,7 @@ Mapping from Markdown to Notion:
 * `status` -> **Status**
 * `tags` -> **Tag**
 
-The `filename` field is used for workflow handling and logging, not as a Notion property.
+The `filename` field is used for workflow handling and logging only.
 
 ## What the ingestion script does
 
@@ -152,147 +262,81 @@ The `filename` field is used for workflow handling and logging, not as a Notion 
 * parsing YAML frontmatter and body sections
 * validating required fields and sections
 * creating a page in the target Notion database
-* converting page content into Notion blocks
-* preserving basic inline formatting such as bold markers in supported content
+* converting content into Notion blocks
+* preserving supported inline formatting in page content
 * moving successful files to `processed/`
 * moving failed files to `failed/`
-* recording results in `manifests/ingest_log.jsonl`
+* writing results to `manifests/ingest_log.jsonl`
 * skipping exact duplicates using a local content hash log
 
-## GitHub Actions workflow
+## Workflow behaviour
 
-The workflow is triggered by:
+The GitHub Actions workflow:
 
-* pushes affecting Markdown files in `pending/`
-* manual runs via `workflow_dispatch`
+1. checks out the repository
+2. sets up Python
+3. installs dependencies
+4. runs `process_notes.py`
+5. commits file movements and manifest updates
 
-The workflow performs these steps:
+This gives you a simple intake-to-publish loop without any manual Notion entry work.
 
-1. check out the repository
-2. set up Python
-3. install dependencies
-4. run `process_notes.py`
-5. commit repository updates for processed, failed, and manifest changes
+## Recommended operating model
 
-## Setup
+1. Upload screenshot(s) to the Gem
+2. Review the Markdown output
+3. Save each note as a `.md` file
+4. Place the files in `pending/md/`
+5. Let GitHub Actions publish them to Notion
 
-### 1. Create the Notion integration
+The design principle is simple:
 
-Create a Notion integration and make sure the target database is shared with it.
-
-### 2. Configure GitHub secrets
-
-Set the following repository secrets:
-
-* `NOTION_TOKEN`
-* `NOTION_DATABASE_ID`
-
-Use the actual database ID, not the view ID.
-
-### 3. Install dependencies locally if needed
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Add Markdown notes for ingestion
-
-Place generated Markdown files into one of these locations:
-
-* `pending/`
-* `pending/md/`
-
-### 5. Trigger the workflow
-
-Either:
-
-* push the files to GitHub, or
-* run the workflow manually from GitHub Actions
-
-## Operating model
-
-### Recommended usage
-
-1. upload screenshot(s) to the Gem
-2. get standard Markdown output in chat
-3. save each note as a `.md` file
-4. place the files into `pending/md/`
-5. let GitHub Actions publish them to Notion
-
-### Design principle
-
-The LLM should interpret the screenshot once.
-
-After that, the pipeline should be deterministic.
-
-## Validation behaviour
-
-The parser validates:
-
-* frontmatter exists
-* required frontmatter fields are present
-* `created_at` is in the expected format
-* category is allowed
-* `Knowledge Summary` exists
-* Markdown can be transformed into valid Notion content blocks
-
-Optional sections are allowed to be absent.
-
-## Logging and file movement
-
-After processing:
-
-* successful notes move to `processed/` or `processed/md/`
-* failed notes move to `failed/` or `failed/md/`
-* results are written to `manifests/ingest_log.jsonl`
-
-This makes the workflow easier to audit and troubleshoot.
+**interpret once, publish deterministically**
 
 ## Common issues
 
 ### Notion API returns `object_not_found`
 
-Usually one of these:
+Usually this means one of the following:
 
-* the database ID is wrong
+* the database ID is incorrect
 * the integration does not have access to the database
-* the ID used is a page or view ID rather than the database ID
+* a page or view ID was used instead of the database ID
 
 ### Formatting does not appear correctly in Notion
 
-Notion does not render raw Markdown markers automatically through the API. Inline formatting must be converted into Notion rich text annotations by the ingestion script.
+Notion does not interpret raw Markdown markers automatically through the API. Inline formatting such as bold must be converted into Notion rich text annotations during ingestion.
 
-### Workflow skips a file unexpectedly
+### A file is skipped unexpectedly
 
-The file may already have been ingested and logged as a duplicate based on its content hash.
+It may already have been ingested and logged as a duplicate based on its content hash.
 
 ## Limitations
 
-Current scope is intentionally narrow:
+This project is intentionally narrow in scope:
 
-* designed for Markdown generated from screenshots
-* not a general-purpose Markdown importer
-* duplicate detection is local-log based, not a full Notion lookup
+* designed for screenshot-derived Markdown notes
+* not a full general-purpose Markdown importer
+* duplicate detection is local-log based
 * formatting support is practical rather than full Markdown parity
 
 ## Future improvements
 
-Possible next steps include:
+Possible enhancements include:
 
-* link parsing and richer inline Markdown support
-* stronger duplicate detection against Notion itself
+* richer inline Markdown support
+* link parsing
+* duplicate detection against Notion itself
 * malformed note repair path
-* category and tag normalisation helpers
-* batch QA reporting for ingested notes
+* stronger category and tag normalisation
+* batch QA reporting
 
 ## Status
 
-Project complete and working across:
+End-to-end workflow tested successfully:
 
 **Gem -> GitHub -> Notion**
 
-The end-to-end integration has been tested successfully.
-
 ## License
 
-Add the project license here if you decide to publish the repository publicly.
+Add a license here if you plan to make the repository public.
